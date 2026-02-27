@@ -1,0 +1,31 @@
+node_modules/
+.env
+.env.local
+.env.production
+.output/
+dist/
+*.log
+.DS_Store
+memory/
+.claude/
+prisma/generated/
+bun.lockb
+bun.lock
+package-lock.json
+
+# Documentation (private)
+CLAUDE.md
+STRATEGY.md
+HACKATHONS.md
+AGENTHIRE.md
+PLAN.md
+REVENUE.md
+RULES.md
+WDK.md
+PITCHDECK.md
+SCRIPT.md
+FRONTEND_STRUCTURE_GUIDE.md
+
+# Contract build artifacts
+contract/out/
+contract/cache/
