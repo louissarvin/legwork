@@ -26,6 +26,19 @@ export async function lockEscrow(taskIndex: number, amount: bigint): Promise<str
   const escrow = await getEscrowAccount(taskIndex)
   const escrowAddress = await escrow.getAddress()
 
+  // Auto-fund escrow wallet with ETH for gas (needed to release payout later)
+  try {
+    const escrowEthBalance = await escrow.getBalance()
+    if (BigInt(escrowEthBalance.toString()) < 3000000000000000n) { // < 0.003 ETH
+      await treasury.sendTransaction({
+        to: escrowAddress,
+        value: 5000000000000000n, // 0.005 ETH for gas
+      })
+    }
+  } catch (e) {
+    console.warn('[Escrow] Failed to fund escrow with ETH:', e)
+  }
+
   const result = await treasury.transfer({
     token: USDT_SEPOLIA,
     recipient: escrowAddress,
