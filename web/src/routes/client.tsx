@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { useAccount } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseUnits } from 'viem'
 import { api, type ClientRequest } from '@/lib/api'
 import StatCard from '@/components/elements/StatCard'
 import Card from '@/components/elements/Card'
@@ -123,23 +124,81 @@ function ClientPage() {
   )
 }
 
+// USDT ERC-20 ABI (only transfer function needed)
+const USDT_ABI = [
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+// WDK USDT on Sepolia
+const USDT_ADDRESS = '0xd077a400968890eacc75cdc901f0356c943e4fdb' as `0x${string}`
+
 function DepositForm({ walletAddress, onSuccess }: { walletAddress: string; onSuccess: () => void }) {
   const [amount, setAmount] = useState('')
+  const [step, setStep] = useState<'input' | 'signing' | 'confirming' | 'crediting' | 'done'>('input')
 
-  const mutation = useMutation({
+  // Get treasury address to send USDT to
+  const { data: treasuryData } = useQuery({
+    queryKey: ['treasury-info'],
+    queryFn: api.tasks.treasuryInfo,
+  })
+
+  const treasuryAddress = treasuryData?.address as `0x${string}` | undefined
+
+  // Step 1: Send USDT on-chain via MetaMask
+  const { writeContract, data: txHash, isPending: _isSigning, error: writeError } = useWriteContract()
+
+  // Step 2: Wait for tx confirmation
+  const { isLoading: _isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
+  // Step 3: Credit balance on backend after tx confirms
+  const creditMutation = useMutation({
     mutationFn: () => {
       const baseUnits = String(Math.round(parseFloat(amount) * 1e6))
-      return api.clients.deposit(walletAddress, baseUnits)
+      return api.clients.deposit(walletAddress, baseUnits, txHash)
     },
-    onSuccess: () => { setAmount(''); onSuccess() },
+    onSuccess: () => { setAmount(''); setStep('done'); onSuccess() },
   })
+
+  // Auto-credit when tx confirms
+  if (isConfirmed && step === 'confirming') {
+    setStep('crediting')
+    creditMutation.mutate()
+  }
+
+  const handleDeposit = () => {
+    if (!treasuryAddress || !amount || parseFloat(amount) <= 0) return
+
+    setStep('signing')
+    writeContract({
+      address: USDT_ADDRESS,
+      abi: USDT_ABI,
+      functionName: 'transfer',
+      args: [treasuryAddress, parseUnits(amount, 6)],
+    })
+  }
+
+  // Track signing -> confirming transition
+  if (txHash && step === 'signing') {
+    setStep('confirming')
+  }
 
   return (
     <motion.div {...FADE_IN_UP} transition={TRANSITION_DEFAULT}>
       <Card>
         <h3 className="font-mono text-sm font-semibold mb-4">{'> '}DEPOSIT_USDT</h3>
         <p className="text-xs text-text-secondary mb-4">
-          Fund your account to create task requests. The agent will execute tasks from your budget.
+          Real on-chain USDT transfer to treasury. Signs via MetaMask on Sepolia.
         </p>
         <div className="flex gap-3 mb-3">
           <input
@@ -148,6 +207,7 @@ function DepositForm({ walletAddress, onSuccess }: { walletAddress: string; onSu
             onChange={e => setAmount(e.target.value)}
             placeholder="Amount in USDT"
             className="flex-1 px-4 py-3 bg-input border border-border-subtle rounded font-mono text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-neon-border"
+            disabled={step !== 'input' && step !== 'done'}
           />
         </div>
         <div className="flex gap-2 mb-4">
@@ -155,20 +215,43 @@ function DepositForm({ walletAddress, onSuccess }: { walletAddress: string; onSu
             <button
               key={v}
               onClick={() => setAmount(String(v))}
-              className="px-3 py-1.5 border border-border-medium rounded font-mono text-xs text-text-secondary hover:border-neon-border hover:text-neon cursor-pointer transition-colors duration-100"
+              disabled={step !== 'input' && step !== 'done'}
+              className="px-3 py-1.5 border border-border-medium rounded font-mono text-xs text-text-secondary hover:border-neon-border hover:text-neon cursor-pointer transition-colors duration-100 disabled:opacity-30"
             >
               ${v}
             </button>
           ))}
         </div>
+
+        {/* Status indicator */}
+        {step === 'signing' && <p className="font-mono text-xs text-yellow-accent mb-2 animate-pulse">SIGNING_TRANSACTION... (confirm in MetaMask)</p>}
+        {step === 'confirming' && <p className="font-mono text-xs text-yellow-accent mb-2 animate-pulse">CONFIRMING_ON_CHAIN... (waiting for block)</p>}
+        {step === 'crediting' && <p className="font-mono text-xs text-yellow-accent mb-2 animate-pulse">CREDITING_BALANCE...</p>}
+
         <BracketButton
-          onClick={() => mutation.mutate()}
-          disabled={!amount || parseFloat(amount) <= 0 || mutation.isPending}
+          onClick={step === 'done' ? () => setStep('input') : handleDeposit}
+          disabled={step === 'signing' || step === 'confirming' || step === 'crediting' || (!amount || parseFloat(amount) <= 0) || !treasuryAddress}
         >
-          {mutation.isPending ? 'PROCESSING...' : 'DEPOSIT_FUNDS'}
+          {step === 'signing' ? 'WAITING_FOR_SIGNATURE...' :
+           step === 'confirming' ? 'CONFIRMING_TX...' :
+           step === 'crediting' ? 'CREDITING...' :
+           step === 'done' ? 'DEPOSIT_AGAIN' :
+           'DEPOSIT_FUNDS_ON_CHAIN'}
         </BracketButton>
-        {mutation.isError && <p className="font-mono text-xs text-danger mt-2">{mutation.error.message}</p>}
-        {mutation.isSuccess && <p className="font-mono text-xs text-neon mt-2">DEPOSIT_CONFIRMED</p>}
+
+        {writeError && <p className="font-mono text-xs text-danger mt-2">{writeError.message.slice(0, 100)}</p>}
+        {creditMutation.isError && <p className="font-mono text-xs text-danger mt-2">{creditMutation.error.message}</p>}
+        {step === 'done' && txHash && (
+          <div className="mt-2 space-y-1">
+            <p className="font-mono text-xs text-neon">DEPOSIT_CONFIRMED_ON_CHAIN</p>
+            <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-neon hover:underline">
+              TX: {txHash.slice(0, 20)}...
+            </a>
+          </div>
+        )}
+        {treasuryAddress && (
+          <p className="font-mono text-[10px] text-text-tertiary mt-2">Treasury: {treasuryAddress.slice(0, 12)}...</p>
+        )}
       </Card>
     </motion.div>
   )
