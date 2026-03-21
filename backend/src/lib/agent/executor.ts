@@ -602,6 +602,74 @@ export async function executeToolCall(toolName: string, input: Record<string, un
       }
     }
 
+    case 'retry_stuck_payouts': {
+      // Find approved submissions with no payout TX
+      const stuckSubs = await prismaQuery.submission.findMany({
+        where: { status: 'approved', payoutTxHash: null },
+        include: { task: true, worker: true },
+      })
+
+      if (stuckSubs.length === 0) return { message: 'No stuck payouts found', count: 0 }
+
+      const results: Array<{ submissionId: string; success: boolean; txHash?: string; error?: string }> = []
+
+      for (const sub of stuckSubs) {
+        if (!sub.worker?.walletAddress) {
+          results.push({ submissionId: sub.id, success: false, error: 'Worker has no wallet' })
+          continue
+        }
+
+        try {
+          const payout = await releaseEscrow(
+            sub.task.escrowAccountIndex,
+            sub.worker.walletAddress,
+            BigInt(sub.task.paymentAmount)
+          )
+
+          // Update submission
+          await prismaQuery.submission.update({
+            where: { id: sub.id },
+            data: { payoutTxHash: payout.workerTxHash },
+          })
+
+          // Update task to paid
+          await prismaQuery.task.update({
+            where: { id: sub.taskId },
+            data: { status: 'paid' },
+          })
+
+          // Update worker stats
+          await prismaQuery.worker.update({
+            where: { id: sub.workerId },
+            data: {
+              tasksCompleted: { increment: 1 },
+              totalEarned: (BigInt(sub.worker.totalEarned) + payout.workerPayout).toString(),
+              reputationScore: { increment: (sub.verificationScore || 0) / 100 },
+            },
+          })
+
+          results.push({
+            submissionId: sub.id,
+            success: true,
+            txHash: payout.workerTxHash,
+          })
+        } catch (err) {
+          results.push({
+            submissionId: sub.id,
+            success: false,
+            error: err instanceof Error ? err.message.slice(0, 80) : String(err),
+          })
+        }
+      }
+
+      return {
+        found: stuckSubs.length,
+        processed: results.length,
+        succeeded: results.filter(r => r.success).length,
+        results,
+      }
+    }
+
     default:
       return { error: `Unknown tool: ${toolName}` }
   }

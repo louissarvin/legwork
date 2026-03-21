@@ -377,4 +377,13 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
       required: ['task_id', 'worker_id'],
     },
   },
+  {
+    name: 'retry_stuck_payouts',
+    description: 'Find approved submissions that have no payout TX hash (stuck payouts) and retry the escrow release. Call this to fix payouts that failed due to insufficient gas.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
 ]
