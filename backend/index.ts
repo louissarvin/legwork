@@ -32,7 +32,7 @@ const fastify = Fastify({
 fastify.register(FastifyCors, {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'payment-signature'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'payment-signature', 'x-admin-key'],
 });
 
 // Health check
