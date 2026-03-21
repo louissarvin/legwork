@@ -95,7 +95,7 @@ describe('Worker Search Agent Tool', () => {
   })
 
   it('should have 34 total tools', () => {
-    expect(AGENT_TOOLS.length).toBe(34)
+    expect(AGENT_TOOLS.length).toBe(35)
   })
 
   it('should have all worker-related tools', () => {

@@ -22,7 +22,7 @@ describe('Agent Tools', () => {
   })
 
   it('should have 26 tools total', () => {
-    expect(AGENT_TOOLS.length).toBe(34)
+    expect(AGENT_TOOLS.length).toBe(35)
   })
 
   it('create_task should require essential fields', () => {

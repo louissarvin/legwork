@@ -5,7 +5,7 @@ describe('Full Agent Tool Suite', () => {
   const toolNames = AGENT_TOOLS.map(t => t.name)
 
   it('should have 26 tools total', () => {
-    expect(AGENT_TOOLS.length).toBe(34)
+    expect(AGENT_TOOLS.length).toBe(35)
   })
 
   // Original 12 tools

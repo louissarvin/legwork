@@ -5,7 +5,7 @@ describe('Agent Tools Integration', () => {
   const toolNames = AGENT_TOOLS.map(t => t.name)
 
   it('should have 26 tools total (12 original + 6 round2 + 4 round3)', () => {
-    expect(AGENT_TOOLS.length).toBe(34)
+    expect(AGENT_TOOLS.length).toBe(35)
   })
 
   // Aave tools

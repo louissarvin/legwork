@@ -106,7 +106,7 @@ describe('Scenario C: t402 API Revenue', () => {
   })
 
   it('should have 29 total tools (26 original + 3 new)', () => {
-    expect(AGENT_TOOLS.length).toBe(34)
+    expect(AGENT_TOOLS.length).toBe(35)
 
     const newTools = ['list_client_requests', 'fulfill_client_request', 'check_api_revenue']
     for (const name of newTools) {

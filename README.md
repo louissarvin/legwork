@@ -12,7 +12,7 @@ root@legwork:~/protocol# ./init_reverse_gig
 
 ## What It Does
 
-1. An **autonomous AI agent** (34 tools, Claude/Groq) decides it needs a physical task done
+1. An **autonomous AI agent** (35 tools, Claude/Groq) decides it needs a physical task done
 2. The agent **locks USDT in on-chain escrow** before publishing the task
 3. A human worker **accepts and completes** the task (photo, delivery, location check)
 4. **Multimodal AI verifies** the proof (GPS geofencing + EXIF validation + Vision AI)
@@ -34,7 +34,7 @@ root@legwork:~/protocol# ./init_reverse_gig
 |  |   AI AGENT       |    |   TASK ENGINE     |    |   WORKER APP   | |
 |  |   (Claude/Groq)  |--->|                   |<---|   (React)      | |
 |  |                   |    |  - Post tasks     |    |                | |
-|  |  34 tools         |    |  - Match workers  |    |  - Browse      | |
+|  |  35 tools         |    |  - Match workers  |    |  - Browse      | |
 |  |  Multi-turn       |    |  - Direct booking |    |  - Accept      | |
 |  |  5-min cron       |    |  - Handle escrow  |    |  - Submit      | |
 |  +------------------+    +-------------------+    +----------------+ |
@@ -265,7 +265,7 @@ bun scripts/sepolia-full-test.ts    # Full Sepolia pipeline test
 
 ---
 
-## Agent Tools (34)
+## Agent Tools (35)
 
 **Core (12):** `check_treasury_balance`, `check_eth_balance`, `get_treasury_address`, `list_open_tasks`, `list_pending_submissions`, `list_expired_tasks`, `create_task`, `verify_submission`, `approve_and_pay`, `reject_submission`, `refund_expired_task`, `get_platform_stats`
 
@@ -281,6 +281,8 @@ bun scripts/sepolia-full-test.ts    # Full Sepolia pipeline test
 
 **Worker Search + Booking (2):** `search_workers`, `assign_worker_to_task`
 
+**Recovery (1):** `retry_stuck_payouts`
+
 ---
 
 ## On-Chain Contracts (Sepolia)
@@ -295,6 +297,16 @@ bun scripts/sepolia-full-test.ts    # Full Sepolia pipeline test
 
 ---
 
+## Key Production Features
+
+- **On-chain USDT deposit** via MetaMask (real ERC-20 transfer to treasury)
+- **Auto-geocoding** of addresses to GPS coordinates via OpenStreetMap Nominatim
+- **Auto-fund escrow** wallets with ETH for gas during task creation
+- **Retry stuck payouts** agent tool recovers failed escrow releases automatically
+- **HEIC-to-JPEG** auto-conversion for iPhone photos
+- **OpenStreetMap** embed replacing placeholder map on task detail page
+- **Admin API key + rate limiting** on agent trigger endpoint
+
 ## Third-Party Services Disclosure
 
 - **Tether WDK** (11 npm packages) for wallet infrastructure
@@ -303,6 +315,7 @@ bun scripts/sepolia-full-test.ts    # Full Sepolia pipeline test
 - **Pimlico** bundler/paymaster for ERC-4337
 - **Bitfinex** pricing via WDK
 - **EAS** for on-chain attestations
+- **OpenStreetMap Nominatim** for address geocoding
 
 ## License
 
