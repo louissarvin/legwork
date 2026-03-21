@@ -263,8 +263,23 @@ function RequestForm({ walletAddress, balance, onSuccess }: { walletAddress: str
   const [budget, setBudget] = useState('')
   const [count, setCount] = useState('5')
   const [address, setAddress] = useState('')
+  const [resolvedCoords, setResolvedCoords] = useState<{ lat: number; lon: number } | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
   const [dropoffAddress, setDropoffAddress] = useState('')
+  const [_dropoffCoords, _setDropoffCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [minDuration, setMinDuration] = useState('')
+
+  // Geocode address to lat/lon using OpenStreetMap Nominatim
+  const geocode = async (query: string): Promise<{ lat: number; lon: number } | null> => {
+    if (!query || query.length < 3) return null
+    try {
+      setGeocoding(true)
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`)
+      const data = await res.json()
+      if (data[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+      return null
+    } catch { return null } finally { setGeocoding(false) }
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -275,8 +290,10 @@ function RequestForm({ walletAddress, balance, onSuccess }: { walletAddress: str
         budget: String(Math.round(parseFloat(budget) * 1e6)),
         tasksRequested: parseInt(count) || 1,
         targetAddress: address || undefined,
+        targetLat: resolvedCoords?.lat,
+        targetLon: resolvedCoords?.lon,
       }),
-    onSuccess: () => { setDesc(''); setBudget(''); setAddress(''); onSuccess() },
+    onSuccess: () => { setDesc(''); setBudget(''); setAddress(''); setResolvedCoords(null); onSuccess() },
   })
 
   const categoryConfig: Record<string, { label: string; placeholder: string; hint: string; validation: string; locationPlaceholder: string }> = {
@@ -364,13 +381,30 @@ function RequestForm({ walletAddress, balance, onSuccess }: { walletAddress: str
             rows={3}
             className="w-full px-4 py-3 bg-input border border-border-subtle rounded font-mono text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-neon-border resize-none"
           />
-          <input
-            type="text"
-            value={address}
-            onChange={e => setAddress(e.target.value)}
-            placeholder={currentCategory.locationPlaceholder}
-            className="w-full px-4 py-3 bg-input border border-border-subtle rounded font-mono text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-neon-border"
-          />
+          <div>
+            <input
+              type="text"
+              value={address}
+              onChange={e => { setAddress(e.target.value); setResolvedCoords(null) }}
+              onBlur={async () => {
+                if (address.length >= 3 && !resolvedCoords) {
+                  const coords = await geocode(address)
+                  if (coords) setResolvedCoords(coords)
+                }
+              }}
+              placeholder={currentCategory.locationPlaceholder}
+              className="w-full px-4 py-3 bg-input border border-border-subtle rounded font-mono text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-neon-border"
+            />
+            {geocoding && <span className="font-mono text-[10px] text-yellow-accent mt-1 block">RESOLVING_GPS...</span>}
+            {resolvedCoords && (
+              <span className="font-mono text-[10px] text-neon mt-1 block">
+                GPS_RESOLVED: {resolvedCoords.lat.toFixed(4)}, {resolvedCoords.lon.toFixed(4)}
+              </span>
+            )}
+            {address.length >= 3 && !resolvedCoords && !geocoding && (
+              <span className="font-mono text-[10px] text-text-tertiary mt-1 block">Click outside to resolve GPS</span>
+            )}
+          </div>
           {category === 'delivery' && (
             <input
               type="text"
