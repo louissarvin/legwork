@@ -69,28 +69,43 @@ function TaskDetailPage() {
               Directive: Complete the assigned task at the designated coordinates. Ensure all proof requirements are met before submission.
             </p>
 
-            {/* Map area */}
-            <div className="relative bg-elevated rounded-lg overflow-hidden mb-6 h-64">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 border-2 border-neon rounded-full opacity-30 animate-pulse" />
-                <div className="absolute w-3 h-3 bg-neon rounded-sm" />
-              </div>
-              {task.lat !== 0 && (
-                <div className="absolute top-3 left-3 bg-page/80 px-2.5 py-1 rounded-sm font-mono text-xs text-text-secondary">
-                  GPS_LOCK: {task.lat.toFixed(4)}N, {Math.abs(task.lon).toFixed(4)}W
+            {/* Map area - OpenStreetMap embed */}
+            {(() => {
+              const mapLat = task.lat !== 0 ? task.lat : task.latApprox || 0
+              const mapLon = task.lon !== 0 ? task.lon : task.lonApprox || 0
+              const hasCoords = mapLat !== 0 && mapLon !== 0
+              return (
+                <div className="relative rounded-lg overflow-hidden mb-6 h-64">
+                  {hasCoords ? (
+                    <iframe
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapLon - 0.005},${mapLat - 0.003},${mapLon + 0.005},${mapLat + 0.003}&layer=mapnik&marker=${mapLat},${mapLon}`}
+                      className="w-full h-full border-0"
+                      style={{ filter: 'hue-rotate(180deg) invert(90%) contrast(1.2)' }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-elevated flex items-center justify-center">
+                      <div className="w-32 h-32 border-2 border-neon rounded-full opacity-30 animate-pulse" />
+                      <div className="absolute w-3 h-3 bg-neon rounded-sm" />
+                    </div>
+                  )}
+                  {task.lat !== 0 && (
+                    <div className="absolute top-3 left-3 bg-page/90 px-2.5 py-1 rounded-sm font-mono text-xs text-text-secondary">
+                      GPS_LOCK: {task.lat.toFixed(4)}, {task.lon.toFixed(4)}
+                    </div>
+                  )}
+                  {task.latApprox && !task.lat && (
+                    <div className="absolute top-3 left-3 bg-page/90 px-2.5 py-1 rounded-sm font-mono text-xs text-text-secondary">
+                      ZONE: {task.latApprox}, {task.lonApprox} (approximate)
+                    </div>
+                  )}
+                  {task.radiusMeters > 0 && (
+                    <div className="absolute bottom-3 right-3 bg-neon-dim border border-neon px-2.5 py-1 rounded-sm font-mono text-[10px] text-neon">
+                      RADIUS: {task.radiusMeters}M GEOFENCE_ACTIVE
+                    </div>
+                  )}
                 </div>
-              )}
-              {task.latApprox && !task.lat && (
-                <div className="absolute top-3 left-3 bg-page/80 px-2.5 py-1 rounded-sm font-mono text-xs text-text-secondary">
-                  ZONE: {task.latApprox}, {task.lonApprox} (approximate)
-                </div>
-              )}
-              {task.radiusMeters > 0 && (
-                <div className="absolute bottom-3 right-3 bg-neon-dim border border-neon px-2.5 py-1 rounded-sm font-mono text-[10px] text-neon">
-                  RADIUS: {task.radiusMeters}M GEOFENCE_ACTIVE
-                </div>
-              )}
-            </div>
+              )
+            })()}
 
             {/* Requirements */}
             <div className="mb-6">
